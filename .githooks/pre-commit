@@ -1,0 +1,28 @@
+#!/bin/bash
+# Pre-commit hook to check code quality
+
+echo "Running code quality checks..."
+
+# Run the Python quality checker if it exists
+if [ -f "check_code_quality.py" ]; then
+    python3 check_code_quality.py
+    if [ $? -ne 0 ]; then
+        echo ""
+        echo "⚠️  Code quality issues detected!"
+        echo "Consider fixing these before committing."
+        echo ""
+        read -p "Continue with commit anyway? (y/n) " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            exit 1
+        fi
+    fi
+fi
+
+# Check for common issues
+echo "Checking for debug prints..."
+if grep -r "print(" *.py | grep -v "# OK" | grep -v "check_code_quality.py"; then
+    echo "Warning: Found print statements (add '# OK' comment to allow)"
+fi
+
+echo "✅ Pre-commit checks complete"

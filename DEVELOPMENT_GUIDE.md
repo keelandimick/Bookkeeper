@@ -283,10 +283,11 @@ Add a function to helpers when:
 ## Development Workflow
 
 ### Setup
-1. Install dependencies: `pip install -r requirements.txt`
-2. Set OpenAI API key in `.env` file
-3. Set Perplexity API key in `.env` file
-4. Enable git hooks: `git config core.hooksPath .githooks`
+1. Clone the repository: `git clone https://github.com/keelandimick/bookkeeper.git`
+2. Install dependencies: `pip install -r requirements.txt`
+3. Set OpenAI API key in `.env` file
+4. Set Perplexity API key in `.env` file
+5. Enable git hooks: `git config core.hooksPath .githooks`
 
 #### API Keys Configuration
 Create a `.env` file in the project root with:

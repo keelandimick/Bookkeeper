@@ -6,12 +6,18 @@ A standalone web application for reconciling personal or business finances by au
 
 - **CSV File Upload**: Import transaction data from Excel or Apple Numbers exports
 - **Smart Column Mapping**: Auto-detect and save column mappings for different account formats
-- **AI-Powered Categorization**: Automatically categorize transactions using machine learning and rule-based patterns
+- **AI-Powered Categorization**: Automatically categorize transactions using OpenAI GPT-3.5
+- **Transaction Research**: Analyze individual transactions with web search via Perplexity API
 - **Chart of Accounts Management**: Maintain and update your categories dynamically
 - **Transaction Review**: Edit and refine categorizations with an intuitive interface
-- **P&L Summary**: Generate monthly Profit & Loss statements with visual analytics
+- **P&L Summary**: Generate monthly Profit & Loss statements with:
+  - Gross profit and net income percentages
+  - Cash flow analysis
+  - Starting/ending cash tracking
+  - Auto-sized columns for better readability
+- **Search All Transactions**: Search across all files in your database
 - **Local Storage**: All data stored securely on your local machine using SQLite
-- **File Management**: Rename files, re-open previous reconciliations
+- **File Management**: Rename files, re-open previous reconciliations with auto-navigation
 
 ## Installation
 
@@ -109,7 +115,7 @@ All data is stored locally on your machine. No data is sent to external servers.
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/bookkeeper.git
+   git clone https://github.com/keelandimick/bookkeeper.git
    cd bookkeeper
    ```
 

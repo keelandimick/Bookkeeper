@@ -73,50 +73,65 @@ if st.session_state.page_override:
 
 # Initialize selected_page if not exists
 if 'selected_page' not in st.session_state:
-    st.session_state.selected_page = all_pages[0]
+    st.session_state.selected_page = "Upload & Map Files"
 
-# Navigation with sections
+# Custom CSS to style buttons like radio buttons
+st.markdown("""
+<style>
+    .stButton > button {
+        background-color: transparent;
+        color: inherit;
+        border: none;
+        padding: 0.25rem 0.5rem;
+        text-align: left !important;
+        justify-content: flex-start !important;
+        width: 100%;
+        border-radius: 0.25rem;
+        font-size: 1rem;
+        font-weight: 400;
+    }
+    .stButton > button:hover {
+        background-color: rgba(151, 166, 195, 0.15);
+    }
+    .stButton > button[kind="primary"] {
+        background-color: rgba(255, 75, 75, 0.1);
+        color: rgb(255, 75, 75);
+    }
+    /* Reduce spacing between buttons */
+    .stButton {
+        margin-bottom: -0.5rem !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Create sidebar navigation with buttons
 st.sidebar.subheader("Transaction Processing")
-selected_transaction = st.sidebar.radio(
-    "",
-    transaction_pages,
-    index=transaction_pages.index(st.session_state.selected_page) if st.session_state.selected_page in transaction_pages else None,
-    key="transaction_radio",
-    label_visibility="collapsed"
-)
+for page_name in transaction_pages:
+    if st.sidebar.button(
+        page_name, 
+        key=f"nav_{page_name}",
+        use_container_width=True,
+        type="primary" if st.session_state.selected_page == page_name else "secondary"
+    ):
+        st.session_state.selected_page = page_name
+        st.session_state.show_saved_message = False
+        st.rerun()
 
 st.sidebar.markdown("---")  # Divider line
 
-st.sidebar.subheader("Management & Reports")
-selected_management = st.sidebar.radio(
-    "",
-    management_pages,
-    index=management_pages.index(st.session_state.selected_page) if st.session_state.selected_page in management_pages else None,
-    key="management_radio",
-    label_visibility="collapsed"
-)
+st.sidebar.subheader("Management & Reports")  
+for page_name in management_pages:
+    if st.sidebar.button(
+        page_name,
+        key=f"nav_{page_name}", 
+        use_container_width=True,
+        type="primary" if st.session_state.selected_page == page_name else "secondary"
+    ):
+        st.session_state.selected_page = page_name
+        st.session_state.show_saved_message = False
+        st.rerun()
 
-# Determine which page was selected
-# Check if transaction radio was clicked
-if selected_transaction and (st.session_state.selected_page != selected_transaction or st.session_state.selected_page in management_pages):
-    page = selected_transaction
-    st.session_state.selected_page = selected_transaction
-    # Clear saved message when navigating away
-    st.session_state.show_saved_message = False
-    # Clear management radio by rerunning
-    if st.session_state.selected_page in transaction_pages:
-        st.rerun()
-# Check if management radio was clicked
-elif selected_management and (st.session_state.selected_page != selected_management or st.session_state.selected_page in transaction_pages):
-    page = selected_management
-    st.session_state.selected_page = selected_management
-    # Clear saved message when navigating away
-    st.session_state.show_saved_message = False
-    # Clear transaction radio by rerunning
-    if st.session_state.selected_page in management_pages:
-        st.rerun()
-else:
-    page = st.session_state.selected_page
+page = st.session_state.selected_page
 
 # Main content area
 if page == "Upload & Map Files":

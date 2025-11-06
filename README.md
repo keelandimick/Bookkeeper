@@ -4,8 +4,6 @@ A standalone web application for reconciling personal or business finances by au
 
 ## Features
 
-- **Multi-User Support**: Secure login system with individual user accounts
-- **Multiple Accounts per User**: Manage Personal, Business, or custom accounts separately
 - **CSV File Upload**: Import transaction data from Excel or Apple Numbers exports
 - **Smart Column Mapping**: Auto-detect and save column mappings for different account formats
 - **AI-Powered Categorization**: Automatically categorize transactions using OpenAI GPT-3.5
@@ -20,7 +18,6 @@ A standalone web application for reconciling personal or business finances by au
 - **Search All Transactions**: Search across all files in your database
 - **Local Storage**: All data stored securely on your local machine using SQLite
 - **File Management**: Rename files, re-open previous reconciliations with auto-navigation
-- **Account Management**: Add, rename, or delete accounts in Settings
 
 ## Installation
 
@@ -80,22 +77,12 @@ Your CSV files should contain at minimum:
 
 ## Data Storage
 
-### Local Version
-Each user's data is stored in separate SQLite databases:
-- User credentials: `config.yaml` (should not be shared)
-- User data: `data/username_accountid.db` (e.g., `data/keelan_personal_001.db`)
-- Each database includes:
-  - Uploaded files and metadata
-  - Column mappings
-  - Chart of accounts
-  - Transaction categorizations
-  - Categorization rules learned from your patterns
-
-### Multi-User Setup
-1. Copy `config.yaml.example` to `config.yaml`
-2. Add users with hashed passwords (use `python hash_password.py`)
-3. Each user can have multiple accounts (Personal, Business, etc.)
-4. Data is completely isolated between users and accounts
+All data is stored locally in a SQLite database at `data/bookkeeper.db`, which includes:
+- Uploaded files and metadata
+- Column mappings
+- Chart of accounts
+- Transaction categorizations
+- Categorization rules learned from your patterns
 
 ## Tips for Best Results
 
@@ -130,7 +117,7 @@ All data is stored locally on your machine. No data is sent to external servers.
    ```
 7. Click "Deploy"
 
-**Note**: Users will need to re-upload their data each session until Supabase integration is complete.
+**⚠️ Important**: On Streamlit Cloud, all data is temporary and will be lost after ~15 minutes of inactivity. For persistent storage, run the app locally or wait for upcoming Supabase integration.
 
 ### Local Deployment
 

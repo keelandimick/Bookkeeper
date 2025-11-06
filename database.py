@@ -3,8 +3,11 @@ import json
 import pandas as pd
 
 class Database:
-    def __init__(self, db_path="bookkeeper.db"):
+    def __init__(self, db_path="data/bookkeeper.db"):
         self.db_path = db_path
+        # Ensure data directory exists
+        import os
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
         self.init_database()
     
     def get_connection(self):

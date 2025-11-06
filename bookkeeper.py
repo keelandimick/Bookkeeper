@@ -20,8 +20,20 @@ st.set_page_config(
 )
 
 # Load authentication config
-with open('config.yaml') as file:
-    config = yaml.load(file, Loader=SafeLoader)
+try:
+    with open('config.yaml') as file:
+        config = yaml.load(file, Loader=SafeLoader)
+except FileNotFoundError:
+    st.error("❌ config.yaml not found!")
+    st.info("""
+    To use Bookkeeper:
+    1. Copy `config.yaml.example` to `config.yaml`
+    2. Add users and set passwords using `python hash_password.py`
+    3. Restart the app
+    
+    See README.md for detailed instructions.
+    """)
+    st.stop()
 
 # Initialize authenticator
 authenticator = stauth.Authenticate(

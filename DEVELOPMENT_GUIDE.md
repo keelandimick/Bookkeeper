@@ -353,42 +353,55 @@ The AI Analysis feature uses Perplexity API to provide real-time web search capa
 
 ## Future Features & TODO List
 
-1. **Implement Export Database Functionality**
+1. **Supabase Integration for Persistent Multi-User Storage** ⚠️ **HIGH PRIORITY**
+   
+   **Current Issue**: Streamlit Cloud wipes all data after ~15 min of inactivity
+   
+   **Phase 1: Set Up Supabase Backend**
+   - [ ] Create Supabase project and get connection credentials
+   - [ ] Design PostgreSQL schema with user_id and account_id columns
+   - [ ] Create migration script from SQLite to PostgreSQL
+   - Estimated time: 1 hour
+   
+   **Phase 2: Database Abstraction Layer**
+   - [ ] Modify database.py to support both SQLite (local) and PostgreSQL (Supabase)
+   - [ ] Add environment detection (local vs deployed)
+   - [ ] Update all SQL queries for PostgreSQL compatibility:
+     - AUTOINCREMENT → SERIAL
+     - Date/time handling differences
+     - String concatenation operators
+   - [ ] Add connection pooling for Supabase
+   - Estimated time: 2-3 hours
+   
+   **Phase 3: Update Data Model**
+   - [ ] Current: Separate DB files per user/account (username_account.db)
+   - [ ] New: Single database with user_id and account_id columns
+   - [ ] Update all queries to filter by user and account
+   - [ ] Add indexes for performance
+   - Estimated time: 2 hours
+   
+   **Phase 4: Deployment Configuration**
+   - [ ] Add Supabase credentials to Streamlit secrets
+   - [ ] Update requirements.txt with PostgreSQL libraries
+   - [ ] Test concurrent user access
+   - [ ] Add connection error handling
+   - Estimated time: 1 hour
+
+2. **Implement Export Database Functionality**
    - Export complete database backup as ZIP file
    - Include all files, transactions, chart of accounts, and categorization rules
    - Add restore/import functionality
 
-2. **Create Dashboard**
+3. **Create Dashboard**
    - Design a comprehensive financial dashboard
    - Include visual charts and graphs
    - Show key metrics and trends
    - Add customizable widgets
 
-3. **Implement Multi-Account Support**
-   
-   **Phase 1: Add Multi-Account Support (No Auth)**
-   - Add account_id column to existing tables (files, chart_of_accounts, categorization_rules)
-   - Create accounts table with id, account_name, account_type, created_at
-   - Create default account for existing data
-   - Update all database queries to filter by account_id
-   - Add account switcher dropdown in UI sidebar
-   - Estimated time: 2-3 hours
-   
-   **Phase 2: Add User Authentication**
-   - Create users table (id, email, password_hash, created_at)
-   - Link accounts to users (add user_id to accounts table)
-   - Implement authentication using streamlit-authenticator or OAuth
-   - Add login/logout functionality
-   - Handle session management
-   - Estimated time: 1-2 hours
-   
-   **Phase 3: Deployment Setup**
-   - Set up GitHub repository
-   - Configure for Streamlit Community Cloud deployment
-   - Add environment variables for API keys
-   - Set up secrets management
-   - Test multi-user functionality
-   - Estimated time: 1-2 hours
+### Completed Features ✅
+- **Multi-Account Support** - Users can have multiple accounts (Personal, Business, etc.)
+- **User Authentication** - Login system with streamlit-authenticator
+- **Account Management** - Add, rename, delete accounts in Settings
 
 ### Future Enhancements
 - API integration with banks/financial institutions

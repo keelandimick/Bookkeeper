@@ -35,3 +35,9 @@ Thumbs.db
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Authentication config
+config.yaml
+
+# User data directories
+data/

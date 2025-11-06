@@ -3,6 +3,9 @@ import pandas as pd
 from datetime import datetime
 import io
 import os
+import yaml
+from yaml.loader import SafeLoader
+import streamlit_authenticator as stauth
 from database import Database
 from categorizer import TransactionCategorizer
 from utils import *
@@ -16,9 +19,62 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Initialize session state
-if 'db' not in st.session_state:
-    st.session_state.db = Database()
+# Load authentication config
+with open('config.yaml') as file:
+    config = yaml.load(file, Loader=SafeLoader)
+
+# Initialize authenticator
+authenticator = stauth.Authenticate(
+    config['credentials'],
+    config['cookie']['name'],
+    config['cookie']['key'],
+    config['cookie']['expiry_days'],
+    auto_hash=False
+)
+
+# Create login widget
+authenticator.login()
+
+if st.session_state["authentication_status"] == False:
+    st.error('Username/password is incorrect')
+    st.stop()
+elif st.session_state["authentication_status"] == None:
+    st.warning('Please enter your username and password')
+    st.stop()
+elif st.session_state["authentication_status"]:
+    # User is authenticated
+    username = st.session_state["username"]
+    name = st.session_state["name"]
+    
+    # Initialize session state for authenticated user
+    # Get user's accounts from config
+    user_accounts = config['credentials']['usernames'][username]['accounts']
+    st.session_state.user_accounts = user_accounts
+    
+    # Check for saved account preference
+    if 'selected_account' not in st.session_state:
+        # Try to get from URL query params first
+        try:
+            saved_account = st.query_params.account
+            if saved_account and any(acc['id'] == saved_account for acc in user_accounts):
+                st.session_state.selected_account = saved_account
+            else:
+                st.session_state.selected_account = user_accounts[0]['id']
+                # Set default in URL
+                st.query_params.account = st.session_state.selected_account
+        except AttributeError:
+            # No account param in URL
+            st.session_state.selected_account = user_accounts[0]['id']
+            # Set default in URL
+            st.query_params.account = st.session_state.selected_account
+    
+    # Initialize database with user-specific path
+    if 'db' not in st.session_state or st.session_state.get('current_account_id') != st.session_state.selected_account:
+        # Create user-specific database
+        db_path = f"data/{username}_{st.session_state.selected_account}.db"
+        os.makedirs("data", exist_ok=True)
+        st.session_state.db = Database(db_path)
+        st.session_state.current_account_id = st.session_state.selected_account
 
 if 'categorizer' not in st.session_state:
     st.session_state.categorizer = TransactionCategorizer(st.session_state.db)
@@ -101,6 +157,10 @@ st.markdown("""
     .stButton {
         margin-bottom: -0.5rem !important;
     }
+    /* Make account selectbox read-only */
+    [data-baseweb="select"] input {
+        pointer-events: none !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -130,6 +190,41 @@ for page_name in management_pages:
         st.session_state.selected_page = page_name
         st.session_state.show_saved_message = False
         st.rerun()
+
+# User controls at bottom of sidebar
+st.sidebar.markdown("---")
+
+# Compact account selector
+account_names = [acc['name'] for acc in st.session_state.user_accounts]
+account_ids = [acc['id'] for acc in st.session_state.user_accounts]
+current_index = account_ids.index(st.session_state.selected_account)
+
+selected_account_name = st.sidebar.selectbox(
+    "Account",
+    account_names,
+    index=current_index,
+    key="account_selector"
+)
+
+# Update selected account if changed
+selected_index = account_names.index(selected_account_name)
+new_account_id = account_ids[selected_index]
+if new_account_id != st.session_state.selected_account:
+    st.session_state.selected_account = new_account_id
+    # Save preference in URL
+    st.query_params.account = new_account_id
+    # Force database reload
+    del st.session_state['db']
+    del st.session_state['categorizer']
+    # Clear file-related state
+    st.session_state.current_file_id = None
+    st.session_state.transactions_df = pd.DataFrame()
+    st.rerun()
+
+# User info and logout
+first_name = name.split()[0]
+authenticator.logout('Logout', 'sidebar', key='logout')
+st.sidebar.markdown(f"👤 **{first_name}**")
 
 page = st.session_state.selected_page
 
@@ -470,6 +565,14 @@ elif page == "Categorize Transactions":
         coa = st.session_state.db.get_chart_of_accounts()
         categories = extract_categories_from_coa(coa) + ['Uncategorized']
         
+        # Fix any categories that aren't in the Chart of Accounts
+        # This handles case mismatches like "Health and Wellness" vs "Health And Wellness"
+        if not st.session_state.transactions_df.empty:
+            valid_categories = set(categories)
+            mask = ~st.session_state.transactions_df['category'].isin(valid_categories)
+            if mask.any():
+                st.session_state.transactions_df.loc[mask, 'category'] = 'Uncategorized'
+        
         # Run auto-categorization
         if st.button("Auto-Categorize Transactions", type="primary"):
             # Count uncategorized transactions
@@ -752,8 +855,30 @@ elif page == "Categorize Transactions":
                 with col3:
                     if st.button("Add Category", type="secondary"):
                         if new_category and new_category not in categories:
+                            # Save any current changes before adding new category
+                            if 'transaction_editor' in st.session_state:
+                                edited_data = st.session_state.transaction_editor
+                                if edited_data is not None and 'edited_rows' in edited_data:
+                                    # Apply edits from the data editor
+                                    for idx, changes in edited_data['edited_rows'].items():
+                                        if 'category' in changes:
+                                            original_idx = display_df.loc[idx, '_original_index']
+                                            st.session_state.transactions_df.loc[original_idx, 'category'] = changes['category']
+                                            # Update original categories tracker
+                                            st.session_state.original_categories[original_idx] = changes['category']
+                                    
+                                    # Save to database if we have a file
+                                    if st.session_state.current_file_id:
+                                        auto_save_transactions(
+                                            st.session_state.db,
+                                            st.session_state.current_file_id,
+                                            st.session_state.original_filename,
+                                            st.session_state.original_df,
+                                            st.session_state.transactions_df
+                                        )
+                            
                             st.session_state.db.add_category(new_category, category_type)
-                            st.toast(f"✅ Added '{new_category}'", icon="✅")
+                            st.toast(f"✅ Added '{new_category}' and saved changes", icon="✅")
                             # Clear the input fields
                             st.session_state.new_category_input_value = ""
                             st.session_state.new_category_type_value = 1  # Reset to "Expense"
@@ -916,20 +1041,26 @@ Search for: "{cleaned_desc}"
 
 Available categories: {', '.join(available_categories)}
 
-CRITICAL: You MUST choose a category from the exact list above. Do NOT create new categories or modify spellings. Match letter-for-letter only.
-
-Based on findings on web search, deduce what the user's transaction is all about with the goal of recommending the most correct category based on the user's chart of accounts.
+INSTRUCTIONS:
+1. ALWAYS suggest the best match from the available categories above
+2. If none of the existing categories are a good fit, ALSO suggest a new category that should be created
+3. Use exact spelling from the list above for existing categories
 
 Format your response EXACTLY like this:
-1. What: 1-2 sentences about the vendor and how it relates to the user (mention location if present)
-2. Category: **:green[Entertainment]** (replace Entertainment with your chosen category, keep the green formatting)
-3. Why: Explain reasoning citing specific keywords from the description
 
-The key insight: Transaction amount + location name/other keywords + one-time or recurring payment all informs category decision.
+1. What: 1-2 sentences about the vendor/transaction
 
-CRUCIAL: For transactions through ticketing platforms (Ludus, Ticketmaster, etc.), you are buying EVENT TICKETS, not the platform's software. Look for venue names/cities in the description - these indicate ticket purchases, not software subscriptions.
+2. Best Match: **:green[Category Name]** (choose from available categories above)
+   Why: Brief reason why this is the closest match
 
-Keep total response under 100 words."""
+3. Recommended New Category: **:orange[New Category Name]** (ONLY if no good match exists)
+   Why: Explain why existing categories don't fit well and why this new category would be better
+
+Examples:
+- If "Pets" exists and it's a pet store: Only suggest "Pets"
+- If no pet-related category exists for a pet store: Suggest best match (e.g., "Shopping") AND recommend creating "Pets"
+
+Keep total response under 120 words."""
 
                     try:
                         # Use Perplexity API for real-time web search
@@ -948,7 +1079,7 @@ Keep total response under 100 words."""
                             "messages": [
                                 {
                                     "role": "system", 
-                                    "content": "You are a financial categorization assistant. Search the web to identify merchants. Be extremely concise."
+                                    "content": "You are a financial categorization assistant. Search the web to identify merchants. Always suggest the best existing category match. If no good match exists, also recommend creating a new category and explain why. Be extremely concise."
                                 },
                                 {
                                     "role": "user", 
@@ -1503,9 +1634,128 @@ elif page == "File Management":
 elif page == "Settings":
     st.header("Settings")
     
-    tabs = st.tabs(["Database Management", "About"])
+    tabs = st.tabs(["Account Management", "Database Management", "About"])
     
     with tabs[0]:
+        st.subheader("Account Management")
+        
+        # Show current accounts
+        st.write("**Your Accounts:**")
+        for acc in st.session_state.user_accounts:
+            col1, col2, col3 = st.columns([3, 1, 1])
+            with col1:
+                st.write(f"📁 {acc['name']} (ID: {acc['id']})")
+            with col2:
+                if st.button("Rename", key=f"rename_{acc['id']}"):
+                    st.session_state[f"renaming_{acc['id']}"] = True
+            with col3:
+                if len(st.session_state.user_accounts) > 1:  # Don't allow deleting last account
+                    if st.button("Delete", key=f"delete_{acc['id']}"):
+                        st.session_state[f"deleting_{acc['id']}"] = True
+            
+            # Rename dialog
+            if st.session_state.get(f"renaming_{acc['id']}", False):
+                with st.container():
+                    new_name = st.text_input("New name:", value=acc['name'], key=f"new_name_{acc['id']}")
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("💾 Save", key=f"save_rename_{acc['id']}", type="primary"):
+                            # Update config
+                            with open('config.yaml', 'r') as f:
+                                config = yaml.load(f, Loader=SafeLoader)
+                            
+                            for account in config['credentials']['usernames'][username]['accounts']:
+                                if account['id'] == acc['id']:
+                                    account['name'] = new_name
+                                    break
+                            
+                            with open('config.yaml', 'w') as f:
+                                yaml.dump(config, f, default_flow_style=False)
+                            
+                            # Update session state
+                            acc['name'] = new_name
+                            st.session_state[f"renaming_{acc['id']}"] = False
+                            st.success(f"Renamed to {new_name}")
+                            st.rerun()
+                    with col2:
+                        if st.button("Cancel", key=f"cancel_rename_{acc['id']}", type="secondary"):
+                            st.session_state[f"renaming_{acc['id']}"] = False
+                            st.rerun()
+            
+            # Delete confirmation
+            if st.session_state.get(f"deleting_{acc['id']}", False):
+                with st.container():
+                    st.error(f"⚠️ Delete account '{acc['name']}'? This will permanently remove all data!")
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("🗑️ Confirm Delete", key=f"confirm_delete_{acc['id']}", type="primary"):
+                            # Update config
+                            with open('config.yaml', 'r') as f:
+                                config = yaml.load(f, Loader=SafeLoader)
+                            
+                            config['credentials']['usernames'][username]['accounts'] = [
+                                a for a in config['credentials']['usernames'][username]['accounts'] 
+                                if a['id'] != acc['id']
+                            ]
+                            
+                            with open('config.yaml', 'w') as f:
+                                yaml.dump(config, f, default_flow_style=False)
+                            
+                            # Delete database file
+                            db_path = f"data/{username}_{acc['id']}.db"
+                            if os.path.exists(db_path):
+                                os.remove(db_path)
+                            
+                            # Update session state
+                            st.session_state.user_accounts = [a for a in st.session_state.user_accounts if a['id'] != acc['id']]
+                            if st.session_state.selected_account == acc['id']:
+                                st.session_state.selected_account = st.session_state.user_accounts[0]['id']
+                            st.session_state[f"deleting_{acc['id']}"] = False
+                            st.success(f"Deleted account '{acc['name']}'")
+                            st.rerun()
+                    with col2:
+                        if st.button("Cancel", key=f"cancel_delete_{acc['id']}", type="secondary"):
+                            st.session_state[f"deleting_{acc['id']}"] = False
+                            st.rerun()
+        
+        # Add new account
+        st.markdown("---")
+        st.write("**Add New Account:**")
+        new_account_name = st.text_input("Account name:")
+        if st.button("Add Account", disabled=not new_account_name):
+            # Generate sequential ID
+            existing_ids = [acc['id'] for acc in st.session_state.user_accounts]
+            # Extract numbers from existing IDs
+            existing_numbers = []
+            for id in existing_ids:
+                # Try to extract number from end of ID
+                parts = id.split('_')
+                if parts[-1].isdigit():
+                    existing_numbers.append(int(parts[-1]))
+            
+            # Find next available number
+            next_num = 1
+            if existing_numbers:
+                next_num = max(existing_numbers) + 1
+            
+            new_id = f"account_{next_num:03d}"
+            
+            # Update config
+            with open('config.yaml', 'r') as f:
+                config = yaml.load(f, Loader=SafeLoader)
+            
+            new_account = {"name": new_account_name, "id": new_id}
+            config['credentials']['usernames'][username]['accounts'].append(new_account)
+            
+            with open('config.yaml', 'w') as f:
+                yaml.dump(config, f, default_flow_style=False)
+            
+            # Update session state
+            st.session_state.user_accounts.append(new_account)
+            st.success(f"Added account '{new_account_name}'")
+            st.rerun()
+    
+    with tabs[1]:
         st.subheader("Database Management")
         
         col_db_1, col_db_2 = st.columns(2)
@@ -1529,9 +1779,9 @@ elif page == "Settings":
                 if confirm_delete:
                     if st.button("Confirm Delete", type="primary"):
                         # Delete the actual database file
-                        import os
-                        if os.path.exists("bookkeeper.db"):
-                            os.remove("bookkeeper.db")
+                        db_path = f"data/{username}_{st.session_state.selected_account}.db"
+                        if os.path.exists(db_path):
+                            os.remove(db_path)
                         
                         # Reset everything
                         st.session_state.db = Database()
@@ -1546,7 +1796,7 @@ elif page == "Settings":
                     st.session_state.show_clear_confirm = False
                     st.rerun()
     
-    with tabs[1]:
+    with tabs[2]:
         st.subheader("About Bookkeeper")
         st.markdown("""
         **Bookkeeper** is a financial reconciliation tool that helps you:

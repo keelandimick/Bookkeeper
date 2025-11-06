@@ -137,9 +137,9 @@ class Database:
             return cursor.fetchall()
     
     def add_category(self, category_name, category_type='Expense'):
-        # Remove all types of apostrophes from category name and use title case for consistency
+        # Remove all types of apostrophes from category name
         category_clean = category_name.replace("'", "").replace("'", "").replace("'", "").replace("`", "")
-        category_clean = category_clean.strip().title()  # Convert to title case
+        category_clean = category_clean.strip()  # Just strip whitespace, preserve original case
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""

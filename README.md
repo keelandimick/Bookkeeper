@@ -4,6 +4,8 @@ A standalone web application for reconciling personal or business finances by au
 
 ## Features
 
+- **Multi-User Support**: Secure login system with individual user accounts
+- **Multiple Accounts per User**: Manage Personal, Business, or custom accounts separately
 - **CSV File Upload**: Import transaction data from Excel or Apple Numbers exports
 - **Smart Column Mapping**: Auto-detect and save column mappings for different account formats
 - **AI-Powered Categorization**: Automatically categorize transactions using OpenAI GPT-3.5
@@ -18,6 +20,7 @@ A standalone web application for reconciling personal or business finances by au
 - **Search All Transactions**: Search across all files in your database
 - **Local Storage**: All data stored securely on your local machine using SQLite
 - **File Management**: Rename files, re-open previous reconciliations with auto-navigation
+- **Account Management**: Add, rename, or delete accounts in Settings
 
 ## Installation
 
@@ -77,12 +80,22 @@ Your CSV files should contain at minimum:
 
 ## Data Storage
 
-All data is stored locally in `bookkeeper.db` (SQLite database) including:
-- Uploaded files and metadata
-- Column mappings
-- Chart of accounts
-- Transaction categorizations
-- Categorization rules learned from your patterns
+### Local Version
+Each user's data is stored in separate SQLite databases:
+- User credentials: `config.yaml` (should not be shared)
+- User data: `data/username_accountid.db` (e.g., `data/keelan_personal_001.db`)
+- Each database includes:
+  - Uploaded files and metadata
+  - Column mappings
+  - Chart of accounts
+  - Transaction categorizations
+  - Categorization rules learned from your patterns
+
+### Multi-User Setup
+1. Copy `config.yaml.example` to `config.yaml`
+2. Add users with hashed passwords (use `python hash_password.py`)
+3. Each user can have multiple accounts (Personal, Business, etc.)
+4. Data is completely isolated between users and accounts
 
 ## Tips for Best Results
 
@@ -97,7 +110,13 @@ All data is stored locally on your machine. No data is sent to external servers.
 
 ## Deployment
 
-### Deploy to Streamlit Community Cloud
+### ⚠️ Important: Streamlit Cloud Limitation
+
+**Current Issue**: When deployed to Streamlit Cloud, all user data is lost after ~15 minutes of inactivity. This is because Streamlit Cloud uses temporary storage that gets wiped when the app restarts.
+
+**Solution in Progress**: We're working on integrating Supabase for persistent cloud storage. Until then, Streamlit Cloud deployment is only suitable for demo purposes.
+
+### Deploy to Streamlit Community Cloud (Demo Only)
 
 1. Fork this repository to your GitHub account
 2. Visit [share.streamlit.io](https://share.streamlit.io)
@@ -110,6 +129,8 @@ All data is stored locally on your machine. No data is sent to external servers.
    PERPLEXITY_API_KEY = "your-perplexity-key"
    ```
 7. Click "Deploy"
+
+**Note**: Users will need to re-upload their data each session until Supabase integration is complete.
 
 ### Local Deployment
 

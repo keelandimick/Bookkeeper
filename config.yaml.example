@@ -1,0 +1,14 @@
+credentials:
+  usernames:
+    demo:
+      name: Demo User
+      password: # Use bcrypt to hash passwords
+      accounts:
+        - name: Account 1
+          id: account_001
+cookie:
+  name: bookkeeper_cookie
+  key: # Generate a random key for production
+  expiry_days: 30
+pre-authorized:
+  emails: []
